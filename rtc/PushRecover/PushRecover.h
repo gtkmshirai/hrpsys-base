@@ -41,7 +41,12 @@
 #include "ReactivePatternGenerator.h"
 #include "OnlinePatternGenerator.h"
 #include "RobustOnlinePatternGenerator.h"
+#define USE_APECF
+#if defined(USE_APECF)
+#include "AbsolutePoseEstimator_CF.h"
+#else
 #include "AbsolutePoseEstimator.h"
+#endif
 #include "interpolator.h"  /* from hrpsys/rtc/SequencePlayer */
 #include "FrameRateMatcher.h"
 #include "SimpleLogger.h"
@@ -633,7 +638,11 @@ private:
 #else
     RobustOnlinePatternGenerator   m_owpg;
 #endif
+#if defined(USE_APECF)
+    AbsolutePoseEstimator_CF<LegIKParam,LEG_IK_TYPE>    m_abs_est;
+#else
     AbsolutePoseEstimator<LegIKParam,LEG_IK_TYPE>    m_abs_est;
+#endif
     //boost::array<float, 12> qs, Dqs, DDqs;
 
     WheelLeg::WheelControllerPtr m_wheel_ctrl;
@@ -1567,7 +1576,9 @@ void PushRecover::interpretJoystickCommandandSend(const TimedFloatSeq &axes, con
 
         //std::cout << "[pr] ps3 command.x,y=[" << command.x << ", " << command.y << "], en=" << jstate.enabled << ", keep=" << jstate.keep_idle << std::endl;
     }else{
-        std::cout << "[pr] button length[" << button_length << "] is not undefined." << std::endl;
+        if( loop%5000==0 ){
+            std::cout << PRED << "[pr] Warning: button length[" << button_length << "] is not undefined. It seems no joystick is connected." << PDEF << std::endl;
+        }
     }
 
 #ifdef DEBUG_HOGE

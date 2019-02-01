@@ -86,6 +86,9 @@ PushRecover::PushRecover(RTC::Manager* manager)
 #else
       m_owpg(m_dt_gen, Zc, LegIKParam::InitialLfoot_p[1], traj_body_init, LegIKParam::InitialLfoot_p, LegIKParam::InitialRfoot_p, RobustOnlinePatternGenerator::func<LegIKParam, LEG_IK_TYPE>), /* 500Hz*/
 #endif
+#if defined(USE_APECF)
+      m_abs_est(0.002f),
+#endif
       m_owpg_cstate(&ctx,&cty),
       rate_matcher(500,1000),
       ee_params(2), /* Default number of End Effector is 2 */
@@ -527,8 +530,17 @@ RTC::ReturnCode_t PushRecover::onInitialize()
   m_expectedJointNum = std::atoi(prop["expectedJointNum"].c_str());
   std::cout << "expectedJointNum = " << m_expectedJointNum << std::endl;
 
+  /* Check the validity by joint num and robot name */
   if(m_robot->numJoints()!=m_expectedJointNum){
       std::cout << "[" << m_profile.instance_name << "] number of joint is expected to be " << m_expectedJointNum << "." << std::endl;
+      return RTC::RTC_ERROR;
+  }
+  if(m_robot->name() != LegIKParam::name){
+      std::cout << "[" << m_profile.instance_name << "] m_robot->name("<<m_robot->name()<<") does not match with LegIKParam::name(" << LegIKParam::name <<  ")"<< std::endl;
+      return RTC::RTC_ERROR;
+  }
+  if(m_robot->name() != RobotConfiguration::robotname){
+      std::cout << "[" << m_profile.instance_name << "] m_robot->name("<<m_robot->name()<<") does not match with RobotConfiguration::robotname(" << RobotConfiguration::robotname <<")"<< std::endl;
       return RTC::RTC_ERROR;
   }
 
@@ -552,7 +564,8 @@ RTC::ReturnCode_t PushRecover::onInitialize()
       m_wheel_ctrl->setPgain(pgain);
       m_wheel_ctrl->setDgain(dgain);
   }else{
-      m_wheel_ctrl = std::make_shared<WheelLeg::WheelController>(1);
+      std::cout << "[" << m_profile.instance_name << "] Robot name does not match L1W." << std::endl;
+      m_wheel_ctrl = std::make_shared<WheelLeg::WheelController>(2);
       m_wheel_ctrl->deactivate();
       std::cout << "[" << m_profile.instance_name << "] Robot name does not matched L1W. Not generate Wheel controller." << std::endl;
   }
@@ -1909,6 +1922,9 @@ RTC::ReturnCode_t PushRecover::onExecute(RTC::UniqueId ec_id)
                   fr[2] = -250.0f;
               }
           }
+#endif
+#if defined(USE_APECF)
+          m_abs_est.setAccelerationSensorVector(m_acc.data.ax, m_acc.data.ay, m_acc.data.az);
 #endif
           m_abs_est.setGyroRateVector(m_rate.data.avx, m_rate.data.avy, m_rate.data.avz);
           m_abs_est.setForceSensorVector(fl, fr);
